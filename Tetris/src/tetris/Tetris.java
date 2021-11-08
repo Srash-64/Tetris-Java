@@ -27,11 +27,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+
+import com.studiohartman.jamepad.ControllerManager;
 
 import tetris.Scoreboard;
 import tetris.Shape;
@@ -113,6 +116,8 @@ public class Tetris extends JPanel implements Runnable {
   ReentrantLock lockRepaint = new ReentrantLock();
   ReentrantLock lockGrid = new ReentrantLock();
 
+  private GamepadInput gamepadInput = new GamepadInput();
+  
   enum Dir {
     right(1, 0),
     down(0, 1),
@@ -162,8 +167,7 @@ public class Tetris extends JPanel implements Runnable {
       }
     });
 
-    long initialDelay = 250L;
-    long delay = 75L;
+    
 
     keyState.put(UsedKeys.LEFT, false);
     keyState.put(UsedKeys.RIGHT, false);
@@ -178,7 +182,7 @@ public class Tetris extends JPanel implements Runnable {
         if (scoreboard.isGameOver())
           return;
 
-        SuperTimer myTimer = null;
+     
 
         int keyCode = e.getKeyCode();
 
@@ -187,107 +191,12 @@ public class Tetris extends JPanel implements Runnable {
         if (!optUsedKeys.isPresent()) return;
 
         UsedKeys usedKeys = optUsedKeys.get();
-
-        boolean alreadyPressed = keyState.getOrDefault(usedKeys, false);
-
-        switch (usedKeys) {
-
-          case ROTATE:
-            if (instantDrop) return;
-            if (!alreadyPressed) {
-              keyState.put(usedKeys, true);
-              lock.lock();
-              try {
-                rotate();
-              }
-              finally {
-                lock.unlock();
-              }
-            }
-            break;
-
-          case ROTATE_A:
-            if (instantDrop) return;
-            if (!alreadyPressed) {
-              keyState.put(usedKeys, true);
-              lock.lock();
-              try {
-                rotateAnti();
-              }
-              finally {
-                lock.unlock();
-              }
-            }
-            break;
-
-          case LEFT:
-            if (instantDrop) return;
-            if (!alreadyPressed) {
-              myTimer = new SuperTimer(l -> moveLeft(), initialDelay, delay);
-              myTimer.setRepeat(true);
-              myTimer.start();
-
-              keyState.put(usedKeys, true);
-              moveLeft();
-
-              keyTimers.put(usedKeys, myTimer);
-            }
-            break;
-
-          case RIGHT:
-            if (instantDrop) return;
-            if (!alreadyPressed) {
-              myTimer = new SuperTimer(l -> moveRight(), initialDelay, delay);
-              myTimer.setRepeat(true);
-              myTimer.start();
-
-              keyState.put(usedKeys, true);
-              moveRight();
-
-              keyTimers.put(usedKeys, myTimer);
-            }
-            break;
-
-          case DOWN:
-            if (instantDrop) return;
-            if (!alreadyPressed) {
-              myTimer = new SuperTimer(l -> moveDown(), initialDelay, delay);
-              myTimer.setRepeat(true);
-              myTimer.start();
-
-              keyState.put(usedKeys, true);
-              moveDown();
-
-              keyTimers.put(usedKeys, myTimer);
-            }
-            break;
-
-          case UP:
-            if (instantDrop) return;
-            if (!alreadyPressed) {
-              keyState.put(usedKeys, true);
-
-              if (!upActive || fallingShape.isNew()) break;
-
-              int nbMove = nbMove(fallingShape, Dir.down);
-
-              lock.lock();
-              try {
-                fallingShapeRow += Dir.down.y * nbMove;
-                fallingShapeCol += Dir.down.x * nbMove;
-              }
-              finally {
-                lock.unlock();
-              }
-
-              instantDrop = true;
-              scoreboard.addScore(nbMove);
-              break;
-            }
-        }
+        managePressedKeys(usedKeys);
+       
 
       }
 
+    
       @Override
       public void keyReleased(KeyEvent e) {
         getUsedKeysByKeyCode(e.getKeyCode()).ifPresent(uk -> {
@@ -306,6 +215,110 @@ public class Tetris extends JPanel implements Runnable {
       }
     });
   }
+  
+  public void managePressedKeys( UsedKeys usedKeys) {
+	  long initialDelay = 250L;
+	    long delay = 75L;
+	  
+	  boolean alreadyPressed = keyState.getOrDefault(usedKeys, false);
+	   SuperTimer myTimer = null;
+      switch (usedKeys) {
+
+        case ROTATE:
+          if (instantDrop) return;
+          if (!alreadyPressed) {
+            keyState.put(usedKeys, true);
+            lock.lock();
+            try {
+              rotate();
+            }
+            finally {
+              lock.unlock();
+            }
+          }
+          break;
+
+        case ROTATE_A:
+          if (instantDrop) return;
+          if (!alreadyPressed) {
+            keyState.put(usedKeys, true);
+            lock.lock();
+            try {
+              rotateAnti();
+            }
+            finally {
+              lock.unlock();
+            }
+          }
+          break;
+
+        case LEFT:
+          if (instantDrop) return;
+          if (!alreadyPressed) {
+            myTimer = new SuperTimer(l -> moveLeft(), initialDelay, delay);
+            myTimer.setRepeat(true);
+            myTimer.start();
+
+            keyState.put(usedKeys, true);
+            moveLeft();
+
+            keyTimers.put(usedKeys, myTimer);
+          }
+          break;
+
+        case RIGHT:
+          if (instantDrop) return;
+          if (!alreadyPressed) {
+            myTimer = new SuperTimer(l -> moveRight(), initialDelay, delay);
+            myTimer.setRepeat(true);
+            myTimer.start();
+
+            keyState.put(usedKeys, true);
+            moveRight();
+
+            keyTimers.put(usedKeys, myTimer);
+          }
+          break;
+
+        case DOWN:
+          if (instantDrop) return;
+          if (!alreadyPressed) {
+            myTimer = new SuperTimer(l -> moveDown(), initialDelay, delay);
+            myTimer.setRepeat(true);
+            myTimer.start();
+
+            keyState.put(usedKeys, true);
+            moveDown();
+
+            keyTimers.put(usedKeys, myTimer);
+          }
+          break;
+
+        case UP:
+          if (instantDrop) return;
+          if (!alreadyPressed) {
+            keyState.put(usedKeys, true);
+
+            if (!upActive || fallingShape.isNew()) break;
+
+            int nbMove = nbMove(fallingShape, Dir.down);
+
+            lock.lock();
+            try {
+              fallingShapeRow += Dir.down.y * nbMove;
+              fallingShapeCol += Dir.down.x * nbMove;
+            }
+            finally {
+              lock.unlock();
+            }
+
+            instantDrop = true;
+            scoreboard.addScore(nbMove);
+            break;
+          }
+      }
+  }
+  
 
   private void initColorMap() {
     levelToColor1.put(0, new Color(60, 188, 252));
@@ -473,6 +486,8 @@ public class Tetris extends JPanel implements Runnable {
 
     long delay = recomputeDelay();
 
+    
+    
     masterTimer = new SuperTimer(l -> {
       addARE = 0;
 
@@ -967,12 +982,67 @@ public class Tetris extends JPanel implements Runnable {
 
       TetrisFrame f = new TetrisFrame(tetris);
       f.setVisible(true);
-
+      
       new Thread(new Runnable() {
         @Override
         public void run() {
           try {
             while (true) {
+            	Set<InputAction>  actions =	tetris.gamepadInput.actions();
+            	
+            	for(	InputAction action : actions) {
+            		switch (action) {
+					case MOVE_UP: {
+						 tetris.managePressedKeys(UsedKeys.UP);
+						break;
+					}
+					case MOVE_DOWN: {
+						 tetris.managePressedKeys(UsedKeys.DOWN);
+						break;
+					}
+					case MOVE_LEFT: {	
+						  tetris.managePressedKeys(UsedKeys.LEFT);
+						break;
+					}
+					case MOVE_RIGHT: {
+						 tetris.managePressedKeys(UsedKeys.RIGHT);
+						break;
+					}
+					case ROTATE: {
+						 tetris.managePressedKeys(UsedKeys.ROTATE);
+						break;
+					}
+					case ROTATE_A: {
+						 tetris.managePressedKeys(UsedKeys.ROTATE_A);
+						break;
+					}
+					default:
+						throw new IllegalArgumentException("Unexpected value: " + action);
+					}
+            	}
+            	
+            	if(actions.isEmpty()) {    
+    	         
+
+//    	          Arrays.stream(UsedKeys.values()).forEach(uk -> {
+//    	        	  
+//    	        	  Boolean state =  tetris.keyState.get(uk);
+//    	        	  
+//    	        	  if(state != null && state == true) {
+//    	        		  tetris.keyState.put(uk, false);
+//        	        	  
+//        	        	  SuperTimer currentTimer = tetris.keyTimers.get(uk);
+//        	        	  
+//            	          if (currentTimer != null && currentTimer.isRunning()) {
+//            	            currentTimer.destroyTimer();        	            
+//            	          }          
+//    	        	  }
+//    	        		
+//    	          });
+    	                 
+            	     
+            	}
+            		
               tetris.repaint();
               Thread.sleep(17);
             }
@@ -1075,6 +1145,11 @@ public class Tetris extends JPanel implements Runnable {
       t.setRepeats(repeat);
     }
 
+
+    public boolean isRunning() {
+     return t.isRunning();
+    }
+    
     public void start() {
       t.start();
     }
