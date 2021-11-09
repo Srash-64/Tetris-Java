@@ -354,8 +354,8 @@ private long currentMilli = System.currentTimeMillis();
 	  identifierToKeyDeviceMap.put(Identifier.Key.DOWN, new KeyDevice( UsedKeys.DOWN, DeviceType.KEYBOARD));
 	  identifierToKeyDeviceMap.put(Identifier.Key.LEFT,  new KeyDevice( UsedKeys.LEFT, DeviceType.KEYBOARD));
 	  identifierToKeyDeviceMap.put(Identifier.Key.RIGHT,  new KeyDevice( UsedKeys.RIGHT, DeviceType.KEYBOARD));
-	  identifierToKeyDeviceMap.put(Identifier.Key.Q,  new KeyDevice( UsedKeys.ROTATE, DeviceType.KEYBOARD));
-	  identifierToKeyDeviceMap.put(Identifier.Key.W,  new KeyDevice( UsedKeys.ROTATE_A, DeviceType.KEYBOARD));
+	  identifierToKeyDeviceMap.put(Identifier.Key.A,  new KeyDevice( UsedKeys.ROTATE, DeviceType.KEYBOARD));
+	  identifierToKeyDeviceMap.put(Identifier.Key.Z,  new KeyDevice( UsedKeys.ROTATE_A, DeviceType.KEYBOARD));
 	  
 	  identifierToKeyDeviceMap.put(Identifier.Button._2, new KeyDevice( UsedKeys.ROTATE, DeviceType.GAMEPAD));
 	  identifierToKeyDeviceMap.put(Identifier.Button._0,new KeyDevice( UsedKeys.ROTATE_A, DeviceType.GAMEPAD));
@@ -982,45 +982,49 @@ private long currentMilli = System.currentTimeMillis();
 
                 
             			/* Get the available controllers */
-            			Controller[] controllers = ControllerEnvironment.getDefaultEnvironment().getControllers();
-            			if (controllers.length == 0) {
-            				System.out.println("Found no controllers.");
-            				System.exit(0);
+            			if(ControllerEnvironment.getDefaultEnvironment() != null) {
+
+                			Controller[] controllers = ControllerEnvironment.getDefaultEnvironment().getControllers();
+                			if (controllers.length == 0) {
+                				System.out.println("Found no controllers.");
+                				System.exit(0);
+                			}
+
+                			for (int i = 0; i < controllers.length; i++) {
+                				/* Remember to poll each one */
+                				controllers[i].poll();
+
+                				/* Get the controllers event queue */
+                				EventQueue queue = controllers[i].getEventQueue();
+
+                				/* Create an event object for the underlying plugin to populate */
+                				Event event = new Event();
+
+                				/* For each object in the queue */
+                				while (queue.getNextEvent(event)) {
+
+     
+                					Component comp = event.getComponent();
+                					
+                					tetris.manageDeviceEvent(comp.getIdentifier(), event);            					
+                				}
+                			}
+
+
+                			try {
+                				Thread.sleep(17);
+                			} catch (InterruptedException e) {
+                				// TODO Auto-generated catch block
+                				e.printStackTrace();
+                			}
             			}
-
-            			for (int i = 0; i < controllers.length; i++) {
-            				/* Remember to poll each one */
-            				controllers[i].poll();
-
-            				/* Get the controllers event queue */
-            				EventQueue queue = controllers[i].getEventQueue();
-
-            				/* Create an event object for the underlying plugin to populate */
-            				Event event = new Event();
-
-            				/* For each object in the queue */
-            				while (queue.getNextEvent(event)) {
-
- 
-            					Component comp = event.getComponent();
-            					
-            					tetris.manageDeviceEvent(comp.getIdentifier(), event);            					
-            				}
-            			}
-
-
-            			try {
-            				Thread.sleep(17);
-            			} catch (InterruptedException e) {
-            				// TODO Auto-generated catch block
-            				e.printStackTrace();
-            			}
+            	
             		
               tetris.repaint();
               Thread.sleep(17);
             }
           }
-          catch (final InterruptedException e) {
+          catch (Exception e) {
             //
           }
         }
