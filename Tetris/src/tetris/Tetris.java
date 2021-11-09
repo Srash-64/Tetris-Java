@@ -182,9 +182,7 @@ private long currentMilli = System.currentTimeMillis();
   }
   
   private void checkReleaseUsedKeys(UsedKeys uk) {
-	
-		if(ukToCheck.contains(uk)) ukToCheck.stream().forEach(this::releaseUsedKeys);			
-		else releaseUsedKeys(uk);	
+	  releaseUsedKeys(uk);	
     }
   
 
@@ -208,8 +206,7 @@ private long currentMilli = System.currentTimeMillis();
 	  
 	  boolean alreadyPressed = keyState.getOrDefault(usedKeys, false);
 	  
-	  boolean lrdalreadyPressed =  keyState.getOrDefault(UsedKeys.LEFT, false) || keyState.getOrDefault(UsedKeys.RIGHT, false) || 
-			  keyState.getOrDefault(UsedKeys.DOWN, false);
+	  
 	  
 	   SuperTimer myTimer = null;
       switch (usedKeys) {
@@ -244,7 +241,7 @@ private long currentMilli = System.currentTimeMillis();
 
         case LEFT:
           if (instantDrop) return;
-          if (!lrdalreadyPressed) {
+          if (!alreadyPressed) {        	  
             myTimer = new SuperTimer(l -> moveLeft(), initialDelay, delay);
             myTimer.setRepeat(true);
             myTimer.start();
@@ -258,7 +255,7 @@ private long currentMilli = System.currentTimeMillis();
 
         case RIGHT:
           if (instantDrop) return;
-          if (!lrdalreadyPressed) {
+          if (!alreadyPressed) {
             myTimer = new SuperTimer(l -> moveRight(), initialDelay, delay);
             myTimer.setRepeat(true);
             myTimer.start();
@@ -272,7 +269,7 @@ private long currentMilli = System.currentTimeMillis();
 
         case DOWN:
           if (instantDrop) return;
-          if (!lrdalreadyPressed) {
+          if (!alreadyPressed) {
             myTimer = new SuperTimer(l -> moveDown(), initialDelay, delay);
             myTimer.setRepeat(true);
             myTimer.start();
@@ -376,6 +373,9 @@ private long currentMilli = System.currentTimeMillis();
   }
 
   private void moveLeft() {
+	  boolean cantMove = keyState.getOrDefault(UsedKeys.RIGHT, false) ||  keyState.getOrDefault(UsedKeys.DOWN, false);	  
+	  if(cantMove) return;
+	  
     if (canMove(fallingShape, Dir.left)) {
       lock.lock();
       try {
@@ -388,6 +388,9 @@ private long currentMilli = System.currentTimeMillis();
   }
 
   private void moveRight() {
+	  boolean cantMove = keyState.getOrDefault(UsedKeys.LEFT, false) ||  keyState.getOrDefault(UsedKeys.DOWN, false);	  
+	  if(cantMove) return;
+	  
     if (canMove(fallingShape, Dir.right)) {
       lock.lock();
       try {
@@ -401,6 +404,9 @@ private long currentMilli = System.currentTimeMillis();
   }
 
   private void moveDown() {
+	  boolean cantMove = keyState.getOrDefault(UsedKeys.LEFT, false) ||  keyState.getOrDefault(UsedKeys.RIGHT, false);	  
+	  if(cantMove) return;
+	  
     if (canMove(fallingShape, Dir.down)) {
       {
         lock.lock();
