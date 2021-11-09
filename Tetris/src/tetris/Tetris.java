@@ -304,7 +304,10 @@ private long currentMilli = System.currentTimeMillis();
 
             instantDrop = true;
             scoreboard.addScore(nbMove);
-            break;
+            
+            masterTimer.setDelay((int) computeARE(fallingShapeRow));
+            shapeHasLanded();  
+
           }
       }
   }
@@ -857,7 +860,7 @@ private long currentMilli = System.currentTimeMillis();
         }
       }
 
-      if (count > 0) {
+      if (count > 0) {   	      	  
         removingLine = true;
         drawFallingShapeControl = false;
 
@@ -893,7 +896,7 @@ private long currentMilli = System.currentTimeMillis();
               else removeLine(linesToRemove);
 
             }
-          }, 25, 50);
+          }, 25, 65);
         }
 
         testRemove.setRepeat(true);
