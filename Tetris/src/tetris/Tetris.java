@@ -19,6 +19,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -34,10 +35,15 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
-import com.studiohartman.jamepad.ControllerManager;
-
+import net.java.games.input.Component;
+import net.java.games.input.Component.Identifier;
+import net.java.games.input.Controller;
+import net.java.games.input.ControllerEnvironment;
+import net.java.games.input.Event;
+import net.java.games.input.EventQueue;
 import tetris.Scoreboard;
 import tetris.Shape;
+import tetris.Tetris.SuperTimer;
 import tetris.UsedKeys;
 
 public class Tetris extends JPanel implements Runnable {
@@ -88,6 +94,8 @@ public class Tetris extends JPanel implements Runnable {
   private final static Color WhiteNes = new Color(0xfcfcfc);
 
   private final static Color gridBorderColor = new Color(0x7788AA);
+  
+  private final static   List<UsedKeys> ukToCheck = new ArrayList<>(Arrays.asList( UsedKeys.LEFT, UsedKeys.DOWN,  UsedKeys.RIGHT,  UsedKeys.UP));	  
 
   private final Map<Integer, Color> levelToColor1 = new HashMap<>();
   private final Map<Integer, Color> levelToColor2 = new HashMap<>();
@@ -95,8 +103,9 @@ public class Tetris extends JPanel implements Runnable {
   private final Map<UsedKeys, SuperTimer> keyTimers = new EnumMap<>(UsedKeys.class);
   private final Map<UsedKeys, Boolean> keyState = new EnumMap<>(UsedKeys.class);
 
-  public final Map<UsedKeys, Integer> moveToKeyCodeMap = new EnumMap<>(UsedKeys.class);
-  private long currentMilli = System.currentTimeMillis();
+  public final Map<Identifier, KeyDevice> identifierToKeyDeviceMap = new HashMap<>();
+  
+private long currentMilli = System.currentTimeMillis();
 
   private boolean classicColor = true;
   private boolean upActive = true;
@@ -116,7 +125,6 @@ public class Tetris extends JPanel implements Runnable {
   ReentrantLock lockRepaint = new ReentrantLock();
   ReentrantLock lockGrid = new ReentrantLock();
 
-  private GamepadInput gamepadInput = new GamepadInput();
   
   enum Dir {
     right(1, 0),
@@ -168,59 +176,41 @@ public class Tetris extends JPanel implements Runnable {
     });
 
     
-
     keyState.put(UsedKeys.LEFT, false);
     keyState.put(UsedKeys.RIGHT, false);
     keyState.put(UsedKeys.DOWN, false);
-
-    addKeyListener(new KeyAdapter() {
-      boolean fastDown;
-
-      @Override
-      public void keyPressed(KeyEvent e) {
-
-        if (scoreboard.isGameOver())
-          return;
-
-     
-
-        int keyCode = e.getKeyCode();
-
-        Optional<UsedKeys> optUsedKeys = getUsedKeysByKeyCode(keyCode);
-
-        if (!optUsedKeys.isPresent()) return;
-
-        UsedKeys usedKeys = optUsedKeys.get();
-        managePressedKeys(usedKeys);
-       
-
-      }
-
-    
-      @Override
-      public void keyReleased(KeyEvent e) {
-        getUsedKeysByKeyCode(e.getKeyCode()).ifPresent(uk -> {
-          SuperTimer currentTimer = keyTimers.get(uk);
-
-          if (currentTimer != null) {
-            currentTimer.destroyTimer();
-
-          }
-
-          if (keyState.get(uk) != null) {
-            keyState.put(uk, false);
-          }
-        });
-
-      }
-    });
   }
+  
+  private void checkReleaseUsedKeys(UsedKeys uk) {
+	
+		if(ukToCheck.contains(uk)) ukToCheck.stream().forEach(this::releaseUsedKeys);			
+		else releaseUsedKeys(uk);	
+    }
+  
+
+  private void  releaseUsedKeys(UsedKeys uk) {
+	  SuperTimer currentTimer = keyTimers.get(uk);
+		
+	    if (currentTimer != null) {
+	      currentTimer.destroyTimer();
+	
+	    }
+	
+	    if (keyState.get(uk) != null) {
+	      keyState.put(uk, false);
+	    }	
+  }
+  
   
   public void managePressedKeys( UsedKeys usedKeys) {
 	  long initialDelay = 250L;
 	    long delay = 75L;
 	  
 	  boolean alreadyPressed = keyState.getOrDefault(usedKeys, false);
+	  
+	  boolean lrdalreadyPressed =  keyState.getOrDefault(UsedKeys.LEFT, false) || keyState.getOrDefault(UsedKeys.RIGHT, false) || 
+			  keyState.getOrDefault(UsedKeys.DOWN, false);
+	  
 	   SuperTimer myTimer = null;
       switch (usedKeys) {
 
@@ -254,7 +244,7 @@ public class Tetris extends JPanel implements Runnable {
 
         case LEFT:
           if (instantDrop) return;
-          if (!alreadyPressed) {
+          if (!lrdalreadyPressed) {
             myTimer = new SuperTimer(l -> moveLeft(), initialDelay, delay);
             myTimer.setRepeat(true);
             myTimer.start();
@@ -268,7 +258,7 @@ public class Tetris extends JPanel implements Runnable {
 
         case RIGHT:
           if (instantDrop) return;
-          if (!alreadyPressed) {
+          if (!lrdalreadyPressed) {
             myTimer = new SuperTimer(l -> moveRight(), initialDelay, delay);
             myTimer.setRepeat(true);
             myTimer.start();
@@ -282,7 +272,7 @@ public class Tetris extends JPanel implements Runnable {
 
         case DOWN:
           if (instantDrop) return;
-          if (!alreadyPressed) {
+          if (!lrdalreadyPressed) {
             myTimer = new SuperTimer(l -> moveDown(), initialDelay, delay);
             myTimer.setRepeat(true);
             myTimer.start();
@@ -357,16 +347,19 @@ public class Tetris extends JPanel implements Runnable {
   }
 
   private void initKeyBind() {
-    moveToKeyCodeMap.put(UsedKeys.LEFT, KeyEvent.VK_LEFT);
-    moveToKeyCodeMap.put(UsedKeys.RIGHT, KeyEvent.VK_RIGHT);
-    moveToKeyCodeMap.put(UsedKeys.UP, KeyEvent.VK_UP);
-    moveToKeyCodeMap.put(UsedKeys.DOWN, KeyEvent.VK_DOWN);
-    moveToKeyCodeMap.put(UsedKeys.ROTATE, KeyEvent.VK_A);
-    moveToKeyCodeMap.put(UsedKeys.ROTATE_A, KeyEvent.VK_Z);
+	  identifierToKeyDeviceMap.put(Identifier.Key.UP, new KeyDevice( UsedKeys.UP, DeviceType.KEYBOARD));
+	  identifierToKeyDeviceMap.put(Identifier.Key.DOWN, new KeyDevice( UsedKeys.DOWN, DeviceType.KEYBOARD));
+	  identifierToKeyDeviceMap.put(Identifier.Key.LEFT,  new KeyDevice( UsedKeys.LEFT, DeviceType.KEYBOARD));
+	  identifierToKeyDeviceMap.put(Identifier.Key.RIGHT,  new KeyDevice( UsedKeys.RIGHT, DeviceType.KEYBOARD));
+	  identifierToKeyDeviceMap.put(Identifier.Key.Q,  new KeyDevice( UsedKeys.ROTATE, DeviceType.KEYBOARD));
+	  identifierToKeyDeviceMap.put(Identifier.Key.W,  new KeyDevice( UsedKeys.ROTATE_A, DeviceType.KEYBOARD));
+	  
+	  identifierToKeyDeviceMap.put(Identifier.Button._2, new KeyDevice( UsedKeys.ROTATE, DeviceType.GAMEPAD));
+	  identifierToKeyDeviceMap.put(Identifier.Button._0,new KeyDevice( UsedKeys.ROTATE_A, DeviceType.GAMEPAD));
   }
 
-  private Optional<UsedKeys> getUsedKeysByKeyCode(Integer keyCode) {
-    return moveToKeyCodeMap.entrySet().stream().filter(es -> es.getValue() == keyCode).map(es -> es.getKey()).findFirst();
+  private Optional<KeyDevice> getKeyDeviceByIdentifier(Identifier id) {
+	 return Optional.ofNullable(identifierToKeyDeviceMap.get(id));
   }
 
   private void rotate() {
@@ -971,12 +964,7 @@ public class Tetris extends JPanel implements Runnable {
 
   }
 
-  public Map<UsedKeys, Integer> getMoveToKeyCodeMap() {
-    return moveToKeyCodeMap;
-  }
-
-  public static void main(String[] args) {
-
+  public static void main(String[] args) {	  
     SwingUtilities.invokeLater(() -> {
       Tetris tetris = new Tetris();
 
@@ -988,60 +976,42 @@ public class Tetris extends JPanel implements Runnable {
         public void run() {
           try {
             while (true) {
-            	Set<InputAction>  actions =	tetris.gamepadInput.actions();
-            	
-            	for(	InputAction action : actions) {
-            		switch (action) {
-					case MOVE_UP: {
-						 tetris.managePressedKeys(UsedKeys.UP);
-						break;
-					}
-					case MOVE_DOWN: {
-						 tetris.managePressedKeys(UsedKeys.DOWN);
-						break;
-					}
-					case MOVE_LEFT: {	
-						  tetris.managePressedKeys(UsedKeys.LEFT);
-						break;
-					}
-					case MOVE_RIGHT: {
-						 tetris.managePressedKeys(UsedKeys.RIGHT);
-						break;
-					}
-					case ROTATE: {
-						 tetris.managePressedKeys(UsedKeys.ROTATE);
-						break;
-					}
-					case ROTATE_A: {
-						 tetris.managePressedKeys(UsedKeys.ROTATE_A);
-						break;
-					}
-					default:
-						throw new IllegalArgumentException("Unexpected value: " + action);
-					}
-            	}
-            	
-            	if(actions.isEmpty()) {    
-    	         
 
-//    	          Arrays.stream(UsedKeys.values()).forEach(uk -> {
-//    	        	  
-//    	        	  Boolean state =  tetris.keyState.get(uk);
-//    	        	  
-//    	        	  if(state != null && state == true) {
-//    	        		  tetris.keyState.put(uk, false);
-//        	        	  
-//        	        	  SuperTimer currentTimer = tetris.keyTimers.get(uk);
-//        	        	  
-//            	          if (currentTimer != null && currentTimer.isRunning()) {
-//            	            currentTimer.destroyTimer();        	            
-//            	          }          
-//    	        	  }
-//    	        		
-//    	          });
-    	                 
-            	     
-            	}
+                
+            			/* Get the available controllers */
+            			Controller[] controllers = ControllerEnvironment.getDefaultEnvironment().getControllers();
+            			if (controllers.length == 0) {
+            				System.out.println("Found no controllers.");
+            				System.exit(0);
+            			}
+
+            			for (int i = 0; i < controllers.length; i++) {
+            				/* Remember to poll each one */
+            				controllers[i].poll();
+
+            				/* Get the controllers event queue */
+            				EventQueue queue = controllers[i].getEventQueue();
+
+            				/* Create an event object for the underlying plugin to populate */
+            				Event event = new Event();
+
+            				/* For each object in the queue */
+            				while (queue.getNextEvent(event)) {
+
+ 
+            					Component comp = event.getComponent();
+            					
+            					tetris.manageDeviceEvent(comp.getIdentifier(), event);            					
+            				}
+            			}
+
+
+            			try {
+            				Thread.sleep(17);
+            			} catch (InterruptedException e) {
+            				// TODO Auto-generated catch block
+            				e.printStackTrace();
+            			}
             		
               tetris.repaint();
               Thread.sleep(17);
@@ -1054,7 +1024,42 @@ public class Tetris extends JPanel implements Runnable {
       }).start();
     });
   }
-
+  
+  private void manageDeviceEvent(Identifier id, Event event) {
+		float eventval = event.getValue();
+	  if(id == Identifier.Axis.POV) {
+		//au bas g d en fcontion de valeur 0.25 0.5 0.75 1	
+			if(eventval == 0.75f) {
+				//bas
+				managePressedKeys(UsedKeys.DOWN);
+			}
+			if(eventval == 1f) {
+				//g
+				managePressedKeys(UsedKeys.LEFT);
+			}
+			if(eventval == 0.25f) {
+				//haut
+				managePressedKeys(UsedKeys.UP);
+			}
+			if(eventval == 0.5f) {
+				//d
+				managePressedKeys(UsedKeys.RIGHT);
+			}
+			if(eventval == 0f) {
+				checkReleaseUsedKeys(UsedKeys.RIGHT);
+				checkReleaseUsedKeys(UsedKeys.DOWN);
+				checkReleaseUsedKeys(UsedKeys.LEFT);
+				checkReleaseUsedKeys(UsedKeys.UP);
+			}
+	  }
+	  else {
+		  getKeyDeviceByIdentifier(id).ifPresent(kd -> {
+			  if(eventval > 0) managePressedKeys(kd.getKey());				
+				else checkReleaseUsedKeys(kd.getKey());				
+		  }); 		  
+	  }
+  }
+  
   private enum ShapeType {
     EMPTY,
     FULL_COLOR_1,
@@ -1124,6 +1129,11 @@ public class Tetris extends JPanel implements Runnable {
         return null;
     }
   }
+  
+  
+  public Optional<Identifier> getIdentifierToKeyDeviceMap(UsedKeys uk, DeviceType dt) {
+  	return identifierToKeyDeviceMap.entrySet().stream().filter(es -> es.getValue().getKey() == uk && es.getValue().getDeviceType() == dt).map(es -> es.getKey()).findFirst();
+  }
 
   public class SuperTimer {
     private final Timer t;
@@ -1169,7 +1179,6 @@ public class Tetris extends JPanel implements Runnable {
         t.stop();
       }
     }
-
   }
 }
 
