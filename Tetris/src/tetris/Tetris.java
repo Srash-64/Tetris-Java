@@ -143,15 +143,16 @@ ReentrantLock lock = new ReentrantLock();
   ReentrantLock lockRepaint = new ReentrantLock();
   ReentrantLock lockGrid = new ReentrantLock();
   
-  private MusicPlayer leftRightFX = new MusicPlayer("change-letter.mp3");
-	private MusicPlayer landFX = new MusicPlayer("Land.mp3");
-	private MusicPlayer lineRemoveFX = new MusicPlayer("Line-delete.mp3");
-	private MusicPlayer tetrisFX = new MusicPlayer("Tetris.mp3");
-	private MusicPlayer gameOverFX = new MusicPlayer("gameover.mp3");
+  private SoundPlayer leftRightFX = new SoundPlayer("change-letter.mp3");
+  private SoundPlayer rotateFX = new SoundPlayer("Left-Right.mp3");
+	private SoundPlayer landFX = new SoundPlayer("Land.mp3");
+	private SoundPlayer lineRemoveFX = new SoundPlayer("Line-delete.mp3");
+	private SoundPlayer tetrisFX = new SoundPlayer("Tetris.mp3");
+	private SoundPlayer gameOverFX = new SoundPlayer("gameover.mp3");
 	
-	private MusicPlayer musicFX = new MusicPlayer("1 - Music 1.mp3");
-	private MusicPlayer musicFastFX = new MusicPlayer("8 - Track 8.mp3");
-
+	private MusicPlayer musicFX = createMusic1Player();
+	private MusicPlayer musicFastFX =createMusic1FastPlayer();
+	
   enum Dir {
     right(1, 0),
     down(0, 1),
@@ -418,7 +419,6 @@ ReentrantLock lock = new ReentrantLock();
       lock.lock();
       try {
         move(Dir.left);
-        
         leftRightFX.play();
        
       }
@@ -436,7 +436,6 @@ ReentrantLock lock = new ReentrantLock();
       lock.lock();
       try {
         move(Dir.right);
-        
         leftRightFX.play();
               	
       }
@@ -492,9 +491,10 @@ ReentrantLock lock = new ReentrantLock();
   }
 
   void startNewGame() {
-	  musicFX.stop();	  
-	  musicFastFX.stop();
-	  musicFX.play();
+	  musicFX.exit();
+	  musicFastFX.exit();
+	  musicFX = createMusic1Player();
+	  musicFX.lecture();
     initGrid();
     selectShape();
     scoreboard.reset();
@@ -721,8 +721,8 @@ ReentrantLock lock = new ReentrantLock();
   }
 
   public void gameOver() {
-	  musicFX.stop();
-	  musicFastFX.stop();
+	  musicFX.exit();
+	  musicFastFX.exit();
 	  gameOverFX.play();	  
     scoreboard.setGameOver();
     scoreboard.setTopscore();
@@ -814,6 +814,8 @@ ReentrantLock lock = new ReentrantLock();
   }
 
   void rotate(Shape s) {
+	  rotateFX.play();
+	  
     if (s.getShapeEnum() == ShapeEnum.Square)
       return;
 
@@ -825,6 +827,8 @@ ReentrantLock lock = new ReentrantLock();
   }
 
   void rotateAnti(Shape s) {
+	  rotateFX.play();
+	  
     if (s.getShapeEnum() == ShapeEnum.Square)
       return;
 
@@ -880,7 +884,6 @@ ReentrantLock lock = new ReentrantLock();
     addShape(fallingShape);
 
     scoreboard.addLines(removeLines(this));
-    testHigh();
     addARE += computeARE(fallingShapeRow);
     selectShape();
     instantDrop = false;
@@ -902,11 +905,16 @@ ReentrantLock lock = new ReentrantLock();
 	  
 	  if(!highStack && newDropHighStack) {
 		  highStack = true;
-		  musicFX.stop();
-		  musicFastFX.play();
+		  musicFX.exit();
+		  musicFastFX.exit();
+		  musicFastFX =createMusic1FastPlayer();
+		  musicFastFX.lecture();
 	  }else if(highStack && !newDropHighStack) {
-		  musicFastFX.stop();
-		  musicFX.play();
+		  highStack = false;
+		  musicFX.exit();
+		  musicFastFX.exit();
+		  musicFX = createMusic1Player();
+		  musicFX.lecture();
 	  }
   }
   
@@ -967,11 +975,14 @@ ReentrantLock lock = new ReentrantLock();
               }
 
               if (allEmpty) {
-
+            	  
                 linesToRemove.forEach(line -> moveLineDownward(line));
                 linesToRemove.clear();
                 drawFallingShapeControl = true;
                 removingLine = false;
+                
+                testHigh();
+
                 testRemove.destroyTimer();
               }
               else removeLine(linesToRemove);
@@ -986,6 +997,7 @@ ReentrantLock lock = new ReentrantLock();
       
       if(count == 0) {
           landFX.play();
+          testHigh();
       }
       else if (count == 4) {
         addARE += 300;
@@ -1254,6 +1266,14 @@ ReentrantLock lock = new ReentrantLock();
               }            
           }
   }
+  
+  private MusicPlayer createMusic1Player() {
+	 return new MusicPlayer("/1 - Music 1.mp3");
+  }
+  
+  private MusicPlayer createMusic1FastPlayer() {
+	return  new MusicPlayer("/8 - Track 8.mp3");
+	  }
   
   public Optional<Identifier> getIdentifierToKeyDeviceMap(UsedKeys uk, DeviceType dt) {
   	return identifierToKeyDeviceMap.entrySet().stream().filter(es -> es.getValue().getKey() == uk && es.getValue().getDeviceType() == dt).map(es -> es.getKey()).findFirst();

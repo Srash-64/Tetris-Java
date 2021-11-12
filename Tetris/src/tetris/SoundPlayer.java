@@ -1,74 +1,118 @@
 package tetris;
 
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-
-import javazoom.jl.decoder.JavaLayerException;
-import javazoom.jl.player.AudioDevice;
-import javazoom.jl.player.FactoryRegistry;
+import javazoom.jl.player.JavaSoundAudioDevice;
+import javazoom.jl.player.Player;
 import javazoom.jl.player.advanced.AdvancedPlayer;
-import javazoom.jl.player.advanced.PlaybackEvent;
-import javazoom.jl.player.advanced.PlaybackListener;
-import net.java.games.input.Component;
-import net.java.games.input.Controller;
-import net.java.games.input.ControllerEnvironment;
-import net.java.games.input.Event;
-import net.java.games.input.EventQueue;
 
-public class SoundPlayer {
+import javax.print.attribute.standard.Media;
+import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.SourceDataLine;
+import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.*;
+import java.lang.reflect.Field;
+
+public class SoundPlayer  {
+
 	
-	private String soundName;
-	private int pausedOnFrame = 0;
-	private AdvancedPlayer player;
-	
-	public SoundPlayer(String soundName) {
-		this.soundName = soundName;
-		
-		
-	      
-		 
-		
-	}
-	
-	public void start() {
-		if(player != null) {
-			player.stop();
-		}
-		
-		   try {       				  
-			   InputStream input = Tetris.class.getResourceAsStream("/" + soundName);
-			   
-			   try {
-					player = new AdvancedPlayer(input);
-					player.setPlayBackListener(new PlaybackListener(){
+    //Creating FileChooser for choosing the music mp3 file
+    JFileChooser fileChooser;
+    InputStream fileInputStream;
+    BufferedInputStream bufferedInputStream;
+    File myFile = null;
+    String filePath;
+    long totalLength, pauseLength;
+    AdvancedPlayer player;
+    Thread playThread, resumeThread;
 
 
-						//override unimplemented methods
-						@Override
-						public void playbackFinished(PlaybackEvent evt){
-						    try{
-							stop();
-						    }
-						    catch(Exception ex){System.out.println(ex);}
-						}
+    
+    public SoundPlayer(String filePath) {
+    	this.filePath = filePath;
 
-						@Override
-						public void playbackStarted(PlaybackEvent evt){
-						}
-					});
-				} catch (JavaLayerException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			   
-	              player.play();
-	          }catch(JavaLayerException e) {
-	              e.printStackTrace();
-	          }
-	}
-	
-	public void stop() {
-		player.stop();		
-	}
+        //Calling Threads
+        playThread = new Thread(runnablePlay);
+        resumeThread = new Thread(runnableResume);
 
+    }
+
+
+    public void play() {        	
+        //starting play thread
+        if (filePath != null) {
+        	 playThread = new Thread(runnablePlay);
+	        	 
+            playThread.start();
+                    }
+        }
+    
+        public void pause() {
+        //code for pause button
+        if (player != null && filePath != null) {
+            try {
+                pauseLength = fileInputStream.available();
+                player.close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        }
+    }
+
+        public void resume() {
+        //starting resume thread
+        if (filePath != null) {
+            resumeThread = new Thread(runnableResume);
+            resumeThread.start();
+        } else {
+    
+        }
+    }
+        
+        public void stop() {
+        //code for stop button
+        if (player != null) {
+            player.close();
+          
+
+    }
+        }
+
+
+    Runnable runnablePlay = new Runnable() {
+        @Override
+        public void run() {  
+        	
+        	try {
+
+                //code for play button        			
+                fileInputStream = Tetris.class.getResourceAsStream("/" + filePath);
+                bufferedInputStream = new BufferedInputStream(fileInputStream);
+                player = new AdvancedPlayer(bufferedInputStream);
+                totalLength = fileInputStream.available();
+                player.play();//starting music
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
+
+    Runnable runnableResume = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                //code for resume button
+            	 fileInputStream = Tetris.class.getResourceAsStream("/" + filePath);
+                bufferedInputStream = new BufferedInputStream(fileInputStream);
+                player = new AdvancedPlayer(bufferedInputStream);
+                fileInputStream.skip(totalLength - pauseLength);
+                player.play();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
 }
