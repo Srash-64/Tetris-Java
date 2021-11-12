@@ -1,14 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?><project-modules id="moduleCoreId" project-version="1.5.0">
-        
+                
+    
+    
     <wb-module deploy-name="Tetris">
-                
-        <wb-resource deploy-path="/" source-path="/src"/>
-                
-        <wb-resource deploy-path="/" source-path="/DLL"/>
+                                
+        
+        
+        <wb-resource deploy-path="/" source-path="/src" tag="defaultRootSource"/>
+                        
+        
         <wb-resource deploy-path="/" source-path="/LauncherUtils"/>
                 
+        <wb-resource deploy-path="/" source-path="/lib"/>
+        <wb-resource deploy-path="/" source-path="/src/sounds"/>
+                                
+        
+        
         <property name="java-output-path" value="/Tetris/build/classes"/>
-            
-    </wb-module>
+                            
     
+    
+    </wb-module>
+            
+
+
 </project-modules>

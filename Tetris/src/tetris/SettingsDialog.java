@@ -45,6 +45,11 @@ public class SettingsDialog extends JDialog {
     add(new JLabel("Level start : "), new GridBagConstraints(0, row, 1, 1, 0.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.NONE, new Insets(15, 15, 5, 15), 0, 0));
     add(spinnerLevel, new GridBagConstraints(1, row++, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(15, 15, 5, 15), 0, 0));
 
+    JSpinner spinnerVolume = new JSpinner(new SpinnerNumberModel(tetris.getMasterVolume()  * 100, 0, 100, 1));
+    add(new JLabel("Volume : "), new GridBagConstraints(0, row, 1, 1, 0.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.NONE, new Insets(15, 15, 5, 15), 0, 0));
+    add(spinnerVolume, new GridBagConstraints(1, row++, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(15, 15, 5, 15), 0, 0));
+
+    
     manageAddButton("Up", row, upTf, UsedKeys.UP, tetris, false, null);
     row++;
     manageAddButton("Down", row, downTf, UsedKeys.DOWN, tetris, false, null);
@@ -84,6 +89,11 @@ public class SettingsDialog extends JDialog {
       
       tetris.identifierToKeyDeviceMap.put(rotateTfGamePad.getId(), new KeyDevice(UsedKeys.ROTATE, DeviceType.GAMEPAD));
       tetris.identifierToKeyDeviceMap.put(rotateATfGamePad.getId(), new KeyDevice(UsedKeys.ROTATE_A, DeviceType.GAMEPAD));
+      
+      float newVolume = (float) (((double) spinnerVolume.getValue()) / 100.0f);
+
+      tetris.setMasterVolume(newVolume);
+      tetris.setMasterVolume();
       
       tetris.setClassicColor(classicColorCB.isSelected());
       tetris.setUpActive(upActiveCB.isSelected());

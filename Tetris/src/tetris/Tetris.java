@@ -20,6 +20,9 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -35,6 +38,11 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
+import javazoom.jl.decoder.JavaLayerException;
+import javazoom.jl.player.Player;
+import javazoom.jl.player.advanced.AdvancedPlayer;
+import javazoom.jl.player.advanced.PlaybackEvent;
+import javazoom.jl.player.advanced.PlaybackListener;
 import net.java.games.input.Component;
 import net.java.games.input.Component.Identifier;
 import net.java.games.input.Controller;
@@ -45,7 +53,11 @@ import tetris.Scoreboard;
 import tetris.Shape;
 import tetris.Tetris.SuperTimer;
 import tetris.UsedKeys;
-
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.Line.Info;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.Port;
 public class Tetris extends JPanel implements Runnable {
 
   private final static Color[] colors = { Color.RED, Color.GREEN, Color.CYAN,
@@ -112,6 +124,8 @@ private long currentMilli = System.currentTimeMillis();
 
   private boolean instantDrop = false;
   private boolean removingLine = false;
+  
+  private boolean highStack = false;
 
   List<Integer> linesToRemove = new ArrayList<>();
 
@@ -120,12 +134,24 @@ private long currentMilli = System.currentTimeMillis();
 
   private SuperTimer masterTimer = null;
   private SuperTimer testRemove = null;
-
-  ReentrantLock lock = new ReentrantLock();
-  ReentrantLock lockRepaint = new ReentrantLock();
-  ReentrantLock lockGrid = new ReentrantLock();
+  
+  private Float masterVolume = 0.5f;
 
   
+
+ReentrantLock lock = new ReentrantLock();
+  ReentrantLock lockRepaint = new ReentrantLock();
+  ReentrantLock lockGrid = new ReentrantLock();
+  
+  private MusicPlayer leftRightFX = new MusicPlayer("change-letter.mp3");
+	private MusicPlayer landFX = new MusicPlayer("Land.mp3");
+	private MusicPlayer lineRemoveFX = new MusicPlayer("Line-delete.mp3");
+	private MusicPlayer tetrisFX = new MusicPlayer("Tetris.mp3");
+	private MusicPlayer gameOverFX = new MusicPlayer("gameover.mp3");
+	
+	private MusicPlayer musicFX = new MusicPlayer("1 - Music 1.mp3");
+	private MusicPlayer musicFastFX = new MusicPlayer("8 - Track 8.mp3");
+
   enum Dir {
     right(1, 0),
     down(0, 1),
@@ -156,7 +182,10 @@ private long currentMilli = System.currentTimeMillis();
   static final Random rand = new Random();
 
   public Tetris() {
-    initKeyBind();
+	 
+	  setMasterVolume();
+	  
+	  initKeyBind();
     initColorMap();
 
     setPreferredSize(dim);
@@ -166,6 +195,15 @@ private long currentMilli = System.currentTimeMillis();
     initGrid();
     selectShape();
 
+    
+    
+    
+
+    
+    
+    
+    
+    
     addMouseListener(new MouseAdapter() {
       @Override
       public void mousePressed(MouseEvent e) {
@@ -380,6 +418,9 @@ private long currentMilli = System.currentTimeMillis();
       lock.lock();
       try {
         move(Dir.left);
+        
+        leftRightFX.play();
+       
       }
       finally {
         lock.unlock();
@@ -395,6 +436,9 @@ private long currentMilli = System.currentTimeMillis();
       lock.lock();
       try {
         move(Dir.right);
+        
+        leftRightFX.play();
+              	
       }
       finally {
         lock.unlock();
@@ -448,6 +492,9 @@ private long currentMilli = System.currentTimeMillis();
   }
 
   void startNewGame() {
+	  musicFX.stop();	  
+	  musicFastFX.stop();
+	  musicFX.play();
     initGrid();
     selectShape();
     scoreboard.reset();
@@ -674,6 +721,9 @@ private long currentMilli = System.currentTimeMillis();
   }
 
   public void gameOver() {
+	  musicFX.stop();
+	  musicFastFX.stop();
+	  gameOverFX.play();	  
     scoreboard.setGameOver();
     scoreboard.setTopscore();
   }
@@ -830,11 +880,36 @@ private long currentMilli = System.currentTimeMillis();
     addShape(fallingShape);
 
     scoreboard.addLines(removeLines(this));
+    testHigh();
     addARE += computeARE(fallingShapeRow);
     selectShape();
     instantDrop = false;
   }
 
+  private void testHigh() {
+	  
+	  boolean newDropHighStack = false;
+	  
+	  for (int r = 5; r >= 0; r--) {
+	        for (int c = 1; c < nCols - 1; c++) {
+	        	if (grid[r][c] >= 0) {
+	        		newDropHighStack = true;
+	        		break;
+	        	}
+	        }
+	  }
+	  
+	  
+	  if(!highStack && newDropHighStack) {
+		  highStack = true;
+		  musicFX.stop();
+		  musicFastFX.play();
+	  }else if(highStack && !newDropHighStack) {
+		  musicFastFX.stop();
+		  musicFX.play();
+	  }
+  }
+  
   private int computeARE(int fallingShapeRow) {
     if (fallingShapeRow >= 16) return 167;
     else if (fallingShapeRow >= 12) return 200;
@@ -908,12 +983,19 @@ private long currentMilli = System.currentTimeMillis();
         testRemove.setRepeat(true);
         testRemove.restart();
       }
-
-      if (count == 4) {
+      
+      if(count == 0) {
+          landFX.play();
+      }
+      else if (count == 4) {
         addARE += 300;
+        tetrisFX.play();
+      }
+      else {
+    	  lineRemoveFX.play();
       }
     }
-
+    
     return count;
   }
 
@@ -1143,6 +1225,35 @@ private long currentMilli = System.currentTimeMillis();
     }
   }
   
+  public Float getMasterVolume() {
+		return masterVolume;
+	}
+
+	public void setMasterVolume(Float masterVolume) {
+		this.masterVolume = masterVolume;
+	}
+  
+  public void setMasterVolume() {
+      Info source = Port.Info.SPEAKER;
+      //        source = Port.Info.LINE_OUT;
+      //        source = Port.Info.HEADPHONE;
+
+          if (AudioSystem.isLineSupported(source)) 
+          {
+              try 
+              {
+                  Port outline = (Port) AudioSystem.getLine(source);
+                  outline.open();                
+                  FloatControl volumeControl = (FloatControl) outline.getControl(FloatControl.Type.VOLUME);                
+                  volumeControl.setValue(masterVolume);            
+              } 
+              catch (LineUnavailableException ex) 
+              {
+                  System.err.println("source not supported");
+                  ex.printStackTrace();
+              }            
+          }
+  }
   
   public Optional<Identifier> getIdentifierToKeyDeviceMap(UsedKeys uk, DeviceType dt) {
   	return identifierToKeyDeviceMap.entrySet().stream().filter(es -> es.getValue().getKey() == uk && es.getValue().getDeviceType() == dt).map(es -> es.getKey()).findFirst();
@@ -1192,6 +1303,8 @@ private long currentMilli = System.currentTimeMillis();
         t.stop();
       }
     }
+    
+
   }
 }
 
