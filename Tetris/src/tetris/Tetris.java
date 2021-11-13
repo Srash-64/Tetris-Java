@@ -74,7 +74,8 @@ public class Tetris extends JPanel implements Runnable {
   private final static Rectangle clickRect = new Rectangle(50, 375, 252, 40);
 
   private final static int blockSize = 30;
-  private final static int nRows = 21;
+  private final static int nRowsVisible = 21;
+  private final static int nRows = 23;
   private final static int nCols = 12;
   private final static int topMargin = 50;
   private final static int leftMargin = 20;
@@ -256,7 +257,20 @@ ReentrantLock lock = new ReentrantLock();
             keyState.put(usedKeys, true);
             lock.lock();
             try {
-              rotate();
+            	if(fallingShape.getShapeEnum().equals(ShapeEnum.IShape)){
+           		 
+            		if(fallingShape.isLastRotateAnti())  {
+               			fallingShape.setLastRotateAnti(false);
+               			rotate();
+               		}
+               		else {
+               			fallingShape.setLastRotateAnti(true);
+               			rotateAnti();
+               		}
+                    
+            	}
+            	
+            	else rotate();
             }
             finally {
               lock.unlock();
@@ -270,7 +284,27 @@ ReentrantLock lock = new ReentrantLock();
             keyState.put(usedKeys, true);
             lock.lock();
             try {
-              rotateAnti();
+            	if(fallingShape.getShapeEnum().equals(ShapeEnum.SShape) || fallingShape.getShapeEnum().equals(ShapeEnum.ZShape)){
+            		 rotate();
+                     
+            	}
+            	
+            	else if(fallingShape.getShapeEnum().equals(ShapeEnum.IShape)){
+              		 
+               		if(fallingShape.isLastRotateAnti())  {
+               			fallingShape.setLastRotateAnti(false);
+               			rotate();
+               		}
+               		else {
+               			fallingShape.setLastRotateAnti(true);
+               			rotateAnti();
+               		}
+                       
+               	}
+            	else {
+            		rotateAnti();
+            	}
+            			
             }
             finally {
               lock.unlock();
@@ -472,8 +506,8 @@ ReentrantLock lock = new ReentrantLock();
       nextShape = new Shape(shapes[rand.nextInt(shapes.length)]);
     }
 
-    fallingShapeRow = 0;
-    fallingShapeCol = 5;
+    fallingShapeRow = 1;
+    fallingShapeCol = 6;
     fallingShape = new Shape(nextShape.getShapeEnum());
     nextShape = new Shape(shapes[rand.nextInt(shapes.length)]);
 
@@ -577,12 +611,19 @@ ReentrantLock lock = new ReentrantLock();
     g.drawString("click to start", clickX, clickY);
   }
 
-  void drawSquare(Graphics2D g, int colorIndex, int r, int c) {
+  void drawSquare(Graphics2D g, int colorIndex, int r, int c, boolean controlHigh) {
     g.setStroke(new BasicStroke(1));
 
     int topX = leftMargin - 4 + c * blockSize;
     int topY = topMargin - 3 + r * blockSize;
 
+    if(controlHigh) {
+    	topY -=  2 *blockSize;
+    	  if( r < 2) return;
+    }
+    
+  
+    
     if (!isClassicColor()) {
       g.setColor(colors[colorIndex]);
 
@@ -669,11 +710,11 @@ ReentrantLock lock = new ReentrantLock();
     try {
 
       // the blocks dropped in the grid
-      for (int r = 0; r < nRows; r++) {
+      for (int r = nRows - nRowsVisible; r < nRows; r++) {
         for (int c = 0; c < nCols; c++) {
           int idx = grid[r][c];
           if (idx > EMPTY)
-            drawSquare(g, idx, r, c);
+            drawSquare(g, idx, r, c, true);
         }
       }
     }
@@ -704,7 +745,7 @@ ReentrantLock lock = new ReentrantLock();
 
     g.translate(cx, cy);
     for (int[] p : nextShape.pos)
-      drawSquare(g, nextShape.getShapeEnum().ordinal(), p[1], p[0]);
+      drawSquare(g, nextShape.getShapeEnum().ordinal(), p[1], p[0], false);
     g.translate(-cx, -cy);
   }
 
@@ -716,7 +757,7 @@ ReentrantLock lock = new ReentrantLock();
     }
 
     for (int[] p : fallingShape.pos) {
-      if (!fallingShape.isNew()) drawSquare(g, idx, fallingShapeRow + p[1], fallingShapeCol + p[0]);
+      if (!fallingShape.isNew()) drawSquare(g, idx, fallingShapeRow + p[1], fallingShapeCol + p[0], true);
     }
   }
 
@@ -1174,13 +1215,13 @@ ReentrantLock lock = new ReentrantLock();
   }
 
   protected enum ShapeEnum {
-    ZShape(new int[][] { { 0, -1 }, { 0, 0 }, { -1, 0 }, { -1, 1 } }, ShapeType.FULL_COLOR_1),
-    SShape(new int[][] { { 0, -1 }, { 0, 0 }, { 1, 0 }, { 1, 1 } }, ShapeType.FULL_COLOR_2),
-    IShape(new int[][] { { 0, -1 }, { 0, 0 }, { 0, 1 }, { 0, 2 } }, ShapeType.EMPTY),
-    TShape(new int[][] { { -1, 0 }, { 0, 0 }, { 1, 0 }, { 0, -1 } }, ShapeType.EMPTY),
-    Square(new int[][] { { 0, 0 }, { 1, 0 }, { 0, -1 }, { 1, -1 } }, ShapeType.EMPTY),
-    LShape(new int[][] { { -1, -1 }, { 0, -1 }, { 0, 0 }, { 0, 1 } }, ShapeType.FULL_COLOR_1),
-    JShape(new int[][] { { 0, 0 }, { 0, 1 }, { 1, -1 }, { 0, -1 } }, ShapeType.FULL_COLOR_2);
+    ZShape(new int[][] { { -1, 0 }, { 0, 0 }, { 0, 1 }, { 1, 1 } }, ShapeType.FULL_COLOR_1),
+    SShape(new int[][] { { 0, 0 }, { 0, 1 }, { -1, 1 }, { 1, 0 } }, ShapeType.FULL_COLOR_2),
+    IShape(new int[][] { { -2, 0 }, { -1, 0 }, { 0, 0 }, { 1, 0 } }, ShapeType.EMPTY),
+    TShape(new int[][] { {0, 1 }, { 1, 0 }, { 0, 0 }, { -1, 0 }}, ShapeType.EMPTY),
+    Square(new int[][] { { -1, 1 }, { 0,1 }, { -1, 0 }, { 0, 0 } }, ShapeType.EMPTY),
+    LShape(new int[][] { { -1, 1 }, { 1, 0 }, { 0, 0 }, { -1, 0} }, ShapeType.FULL_COLOR_1),
+    JShape(new int[][] { {1, 1 }, { 1, 0 }, { 0, 0 }, { -1, 0 } }, ShapeType.FULL_COLOR_2);
 
     private ShapeType type;
 
